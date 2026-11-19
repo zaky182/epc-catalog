@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HeavyEPC — Katalog Spare Part Alat Berat Multi-Merk</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <!-- Client-side PDF.js for zero-dependency vector exploded diagram rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+</head>
+<body>
+  <!-- TOP HEADER -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button id="btnToggleSidebar" class="icon-btn mobile-only" title="Toggle Menu">☰</button>
+      <div class="brand-logo" id="logoHome" title="Kembali ke Dashboard">
+        <span class="logo-mark">HE</span>
+        <div class="logo-text">
+          <strong>HeavyEPC</strong>
+          <small>Multi-Brand Parts Catalog</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-search">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input
+          id="globalSearchInput"
+          type="text"
+          placeholder="Cari Part Number (6251-11-5440 / 6251115440), Deskripsi, Aftermarket (P550881)..."
+          autocomplete="off"
+        />
+        <select id="searchBrandFilter" title="Filter Merk">
+          <option value="">Semua Merk</option>
+        </select>
+        <kbd class="shortcut-hint">Ctrl+K</kbd>
+      </div>
+      <div id="searchDropdown" class="search-dropdown hidden"></div>
+    </div>
+
+    <div class="topbar-actions">
+      <button id="btnOpenUpload" class="btn btn-primary" title="Upload PDF Part Book atau CSV">
+        + Upload Katalog
+      </button>
+      <button id="btnOpenCart" class="btn btn-secondary cart-btn" title="Daftar Permintaan Part / Picking List">
+        🛒 Picking List <span id="cartBadge" class="badge-count">0</span>
+      </button>
+      <button id="btnThemeToggle" class="icon-btn" title="Ganti Tema Gelap / Terang">🌓</button>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="workspace">
+    <!-- LEFT SIDEBAR: Brand -> Model -> Section -> Figure Tree -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-selectors">
+        <div class="field-group">
+          <label for="brandSelect">Merk Unit</label>
+          <select id="brandSelect"></select>
+        </div>
+        <div class="field-group">
+          <label for="modelSelect">Model & Part Book</label>
+          <select id="modelSelect"></select>
+        </div>
+        <div id="unitMetaCard" class="unit-meta hidden"></div>
+      </div>
+
+      <div class="sidebar-filter">
+        <input id="treeFilterInput" type="text" placeholder="Filter section / figure..." />
+      </div>
+
+      <nav id="sectionTree" class="section-tree">
+        <div class="empty-hint">Pilih merk & model unit untuk melihat katalog.</div>
+      </nav>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="main-content">
+      <!-- Welcome / Dashboard State (shown before selecting a figure) -->
+      <section id="welcomeView" class="welcome-view">
+        <div class="welcome-hero">
+          <h1>Electronic Parts Catalog (EPC) Multi-Merk</h1>
+          <p>
+            Satu pusat katalog spare part untuk <strong>Komatsu, Volvo, Caterpillar, Hitachi, Kobelco, Scania</strong>, dan merk lainnya.
+            Cari lintas unit dalam milidetik, zoom diagram <em>exploded view</em>, cek <em>Where-Used</em>, <em>Service Kit</em>, hingga persamaan <em>Aftermarket</em>.
+          </p>
+          <div class="stats-grid" id="statsGrid"></div>
+          <div class="welcome-actions">
+            <button id="btnHeroUpload" class="btn btn-primary">+ Upload PDF Part Book</button>
+            <button id="btnHeroExplore" class="btn btn-secondary">Buka Sampel PC500LC-10R</button>
+          </div>
+        </div>
+
+        <div class="quick-tips">
+          <div class="tip-card">
+            <h3>⚡ Cari Tanpa Tanda Strip</h3>
+            <p>Ketik <code>6251115440</code> atau <code>6251-11-5440</code> — keduanya langsung ditemukan beserta daftar unit yang memakainya.</p>
+          </div>
+          <div class="tip-card">
+            <h3>🧩 Klik Badge Kit & Referensi</h3>
+            <p>Klik <code>Kit: K26</code> untuk melihat isi Seal Kit lengkap, atau klik <code>Refer to Page 125</code> untuk langsung lompat ke figure terkait.</p>
+          </div>
+          <div class="tip-card">
+            <h3>🔁 Cross-Reference Aftermarket</h3>
+            <p>Ketik nomor filter <code>P550881</code> (Donaldson) atau <code>FF5632</code> (Fleetguard) untuk langsung mencocokkan ke OEM Part Number.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SPLIT-PANE FIGURE VIEWER -->
+      <section id="figureView" class="figure-view hidden">
+        <div class="figure-header">
+          <div class="figure-title-block">
+            <div class="breadcrumbs" id="figBreadcrumbs"></div>
+            <h2 id="figTitle"></h2>
+          </div>
+          <div class="figure-header-actions">
+            <button id="btnToggleAdminEdit" class="btn btn-ghost btn-sm" title="Mode koreksi tabel Admin">
+              ✏️ Mode Edit
+            </button>
+            <a id="btnOpenOriginalPdf" class="btn btn-ghost btn-sm hidden" target="_blank" rel="noopener">
+              📄 PDF Asli
+            </a>
+          </div>
+        </div>
+
+        <div class="split-pane">
+          <!-- LEFT PANE: Interactive Exploded Diagram Viewer -->
+          <div class="diagram-pane" id="diagramPane">
+            <div class="diagram-toolbar">
+              <div class="toolbar-left">
+                <span id="diagramDrawingCode" class="drawing-chip"></span>
+                <span id="diagramPageChip" class="drawing-chip"></span>
+              </div>
+              <div class="toolbar-controls">
+                <button id="btnZoomOut" class="tool-btn" title="Zoom Out">−</button>
+                <span id="zoomPercent" class="zoom-label">100%</span>
+                <button id="btnZoomIn" class="tool-btn" title="Zoom In">+</button>
+                <button id="btnZoomReset" class="tool-btn" title="Reset View">Reset</button>
+                <button id="btnFullscreen" class="tool-btn" title="Fullscreen">⛶</button>
+              </div>
+            </div>
+
+            <div class="diagram-stage" id="diagramStage">
+              <div class="diagram-transform" id="diagramTransform">
+                <img id="diagramImage" class="diagram-media hidden" alt="Exploded Diagram" draggable="false" />
+                <canvas id="diagramCanvas" class="diagram-media hidden"></canvas>
+              </div>
+              <div id="diagramPlaceholder" class="diagram-placeholder hidden">
+                <div class="placeholder-icon">📐</div>
+                <p id="diagramPlaceholderText">Diagram belum tersedia untuk figure demo ini.</p>
+                <small>Upload file PDF Part Book asli untuk menampilkan Exploded View beresolusi tinggi dengan Zoom & Pan.</small>
+              </div>
+              <div id="diagramLoading" class="diagram-loading hidden">Memuat diagram...</div>
+            </div>
+          </div>
+
+          <!-- RIGHT PANE: Interactive Parts List Table -->
+          <div class="parts-pane">
+            <div class="parts-toolbar">
+              <input id="figureFilterInput" type="text" placeholder="Filter part di figure ini (index, PN, deskripsi)..." />
+              <span id="partsCountLabel" class="muted-label">0 items</span>
+              <button id="btnAddPartRow" class="btn btn-primary btn-sm hidden">+ Baris</button>
+            </div>
+
+            <div class="parts-table-wrap">
+              <table class="parts-table">
+                <thead>
+                  <tr>
+                    <th class="col-idx">Idx</th>
+                    <th class="col-code">Code</th>
+                    <th class="col-pn">Part Number</th>
+                    <th class="col-desc">Description</th>
+                    <th class="col-qty">Qty</th>
+                    <th class="col-sn">Serial No.</th>
+                    <th class="col-act">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="partsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- PICKING LIST / PART CART DRAWER -->
+  <div id="cartDrawerBackdrop" class="drawer-backdrop hidden"></div>
+  <aside id="cartDrawer" class="drawer hidden">
+    <div class="drawer-header">
+      <h3>🛒 Picking List / Request Part</h3>
+      <button id="btnCloseCart" class="icon-btn">✕</button>
+    </div>
+    <div class="drawer-meta">
+      <input id="cartUnitNote" type="text" placeholder="Catatan Unit / No. WO (mis. EX-05 PC500LC-10R)" />
+    </div>
+    <div id="cartItemsList" class="drawer-body"></div>
+    <div class="drawer-footer">
+      <div class="drawer-footer-row">
+        <button id="btnCopyWhatsApp" class="btn btn-primary">📋 Copy Teks (WA)</button>
+        <button id="btnExportCsv" class="btn btn-secondary">📊 Export CSV</button>
+      </div>
+      <button id="btnClearCart" class="btn btn-ghost btn-sm full-width">Kosongkan Daftar</button>
+    </div>
+  </aside>
+
+  <!-- MODAL: WHERE-USED & AFTERMARKET CROSS-REFERENCE -->
+  <div id="whereUsedModal" class="modal-backdrop hidden">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3 id="wuTitle">Detail Part & Where-Used</h3>
+          <small id="wuSubtitle" class="muted-label"></small>
+        </div>
+        <button class="icon-btn modal-close" data-close="whereUsedModal">✕</button>
+      </div>
+      <div class="modal-body" id="wuBody"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: SERVICE KIT CONTENTS -->
+  <div id="kitModal" class="modal-backdrop hidden">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3 id="kitTitle">Service Kit</h3>
+          <small id="kitSubtitle" class="muted-label"></small>
+        </div>
+        <button class="icon-btn modal-close" data-close="kitModal">✕</button>
+      </div>
+      <div class="modal-body" id="kitBody"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: UPLOAD PDF / CSV CATALOG -->
+  <div id="uploadModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Upload Katalog Spare Part</h3>
+        <button class="icon-btn modal-close" data-close="uploadModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="tabPdf">PDF Part Book</button>
+          <button class="tab-btn" data-tab="tabCsv">Import CSV (Multi-Merk)</button>
+        </div>
+
+        <!-- TAB PDF -->
+        <form id="pdfUploadForm" class="upload-form">
+          <div class="form-row">
+            <div class="field-group">
+              <label>Merk Unit *</label>
+              <input name="brand_name" list="brandSuggestions" value="Komatsu" required />
+              <datalist id="brandSuggestions"></datalist>
+            </div>
+            <div class="field-group">
+              <label>Model Unit *</label>
+              <input name="model_name" placeholder="mis. PC500LC-10R" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field-group">
+              <label>Kategori</label>
+              <select name="category">
+                <option value="Excavator">Excavator</option>
+                <option value="Dump Truck">Dump Truck</option>
+                <option value="Bulldozer">Bulldozer</option>
+                <option value="Wheel Loader">Wheel Loader</option>
+                <option value="Motor Grader">Motor Grader</option>
+                <option value="Other">Lainnya</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label>Parser Adapter</label>
+              <select name="parser_type">
+                <option value="komatsu">Komatsu (Landscape + CSS Portrait)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field-group">
+              <label>Form No. (Opsional)</label>
+              <input name="form_no" placeholder="mis. FEN04597-00" />
+            </div>
+            <div class="field-group">
+              <label>Serial No. Range (Opsional)</label>
+              <input name="sn_range" placeholder="mis. 100003-UP" />
+            </div>
+          </div>
+          <div class="field-group">
+            <label>File PDF Part Book (maks. 250 MB) *</label>
+            <input name="file" type="file" accept=".pdf,application/pdf" required />
+          </div>
+
+          <div id="uploadProgressWrap" class="progress-wrap hidden">
+            <div class="progress-bar"><div id="uploadProgressFill" class="progress-fill"></div></div>
+            <small id="uploadProgressText">Mengunggah...</small>
+          </div>
+
+          <button type="submit" class="btn btn-primary full-width">Mulai Ekstraksi PDF</button>
+        </form>
+
+        <!-- TAB CSV -->
+        <form id="csvUploadForm" class="upload-form hidden">
+          <p class="muted-label">
+            Gunakan template CSV universal untuk memasukkan katalog merk apa pun (Volvo, CAT, Hitachi, Kobelco, dll.).
+            <a href="/api/templates/csv" class="inline-link">Download Template CSV</a>
+          </p>
+          <div class="form-row">
+            <div class="field-group">
+              <label>Merk Unit *</label>
+              <input name="brand_name" list="brandSuggestions" placeholder="mis. Volvo" required />
+            </div>
+            <div class="field-group">
+              <label>Model Unit *</label>
+              <input name="model_name" placeholder="mis. EC480D" required />
+            </div>
+          </div>
+          <div class="field-group">
+            <label>File CSV *</label>
+            <input name="file" type="file" accept=".csv,text/csv" required />
+          </div>
+          <button type="submit" class="btn btn-primary full-width">Import CSV ke Katalog</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADMIN EDIT PART ROW -->
+  <div id="editPartModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="editPartModalTitle">Edit Baris Part</h3>
+        <button class="icon-btn modal-close" data-close="editPartModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="editPartForm" class="upload-form">
+          <input type="hidden" name="id" />
+          <div class="form-row">
+            <div class="field-group"><label>Index</label><input name="index_no" /></div>
+            <div class="field-group"><label>Code (A1-C3)</label><input name="code" /></div>
+            <div class="field-group"><label>Qty</label><input name="qty" /></div>
+          </div>
+          <div class="form-row">
+            <div class="field-group"><label>Part Number</label><input name="part_number" /></div>
+            <div class="field-group"><label>Indent Level (0-4)</label><input name="indent_level" type="number" min="0" max="4" /></div>
+          </div>
+          <div class="field-group"><label>Description</label><input name="description" required /></div>
+          <div class="form-row">
+            <div class="field-group"><label>Serial Number</label><input name="serial_number_range" /></div>
+            <div class="field-group"><label>Kit Ref (mis. K26)</label><input name="kit_ref" /></div>
+          </div>
+          <div class="form-row">
+            <div class="field-group"><label>Refer to Page</label><input name="refer_to_page" /></div>
+            <div class="field-group"><label>Lokasi Rak (Bin)</label><input name="bin_location" placeholder="mis. RACK-A04" /></div>
+          </div>
+          <div class="field-group"><label>Catatan Lapangan</label><input name="notes" /></div>
+          <button type="submit" class="btn btn-primary full-width">Simpan Perubahan</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+services:
+  epc-catalog:
+    build: .
+    container_name: epc-catalog
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DATA_DIR=/app/data
+      - UPLOAD_DIR=/app/uploads
+      - DIAGRAMS_DIR=/app/public/diagrams
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./public/diagrams:/app/public/diagrams
+    restart: unless-stopped
