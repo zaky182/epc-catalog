@@ -201,7 +201,7 @@ function seedDemoData() {
       const vFig = run(
         `INSERT INTO figures (book_id, section_id, fig_no, title, pdf_page_start, pdf_page_end, book_page_label, layout_type, sort_order)
          VALUES (?, ?, ?, ?, 1, 1, '1', 'generic', 1)`,
-        [vBook, vSec, '233-0010', 'Fuel Filter & Water Separator', 1],
+        [vBook, vSec, '233-0010', 'Fuel Filter & Water Separator'],
         { deferSave: true }
       ).lastInsertRowid;
 
